@@ -1,0 +1,41 @@
+# Multi-Bidder VC Auction PPO Training Configuration (Data-Calibrated V3)
+
+environment:
+  true_value_mu: 100.0           # Median V (log-normal)
+  true_value_sigma_log: 1.19     # sigma_log of V distribution (from Openbook data)
+  noise_std: 20.0                # Signal noise sigma (sigma/V ~ 20%, realistic uncertainty)
+  n_bidders: 3                   # Number of bidders per round
+  n_rounds: 2                    # Number of financing rounds
+  budget: 250.0                  # Budget constraint
+  initial_ownership: 0.17        # Matches data median
+  discount_factor: 0.95          # Cross-period discount
+  v_shift_mu: 0.0               # No systematic drift
+  v_shift_sigma: 1.0             # Inter-round V shift (log-std)
+  dr_penalty: 0.0               # DR penalty coefficient (off by default)
+  seed: 42
+
+ppo:
+  lr: 0.0003
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_epsilon: 0.2
+  value_coef: 0.5
+  entropy_coef: 0.01
+  max_grad_norm: 0.5
+  hidden_dim: 64
+  device: "cpu"
+
+training:
+  n_episodes: 10000
+  steps_per_episode: 2
+  initial_ownership: 0.17
+  discount_factor: 0.95
+  update_interval: 256
+  n_epochs: 4
+  batch_size: 64
+  eval_interval: 500
+
+logging:
+  log_dir: "./logs"
+  save_interval: 1000
+  print_interval: 100

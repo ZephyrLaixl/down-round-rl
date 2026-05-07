@@ -1,0 +1,56 @@
+# Generated outputs (user creates by running train.py)
+models/*.pt
+logs/*.json
+figures/*.png
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Data (not distributed — environment is self-contained)
+data/
+
+# Development / iteration directories
+coding-full/
+
+# Claude Code
+.claude/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# LaTeX auxiliary files
+paper/*.aux
+paper/*.bbl
+paper/*.blg
+paper/*.log
+paper/*.out
+paper/*.synctex.gz
+paper/*.fdb_latexmk
+paper/*.fls
+
+# Slides build artifacts
+slides/*.aux
+slides/*.bbl
+slides/*.blg
+slides/*.log
+slides/*.out
+slides/*.synctex.gz
+slides/*.fdb_latexmk
+slides/*.fls
+slides/*.toc
+slides/*.nav
+slides/*.snm
+slides/*.vrb

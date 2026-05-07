@@ -1,0 +1,390 @@
+\documentclass[aspectratio=169]{beamer}
+
+% --- Theme & styling ---
+\usetheme{Madrid}
+\usecolortheme{default}
+\setbeamercolor{title}{fg=white}
+\setbeamercolor{frametitle}{fg=white}
+\setbeamercolor{block title}{fg=white}
+\setbeamercolor{block body}{bg=structure.fg!10}
+\setbeamertemplate{caption}[numbered]
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+% --- Packages ---
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath,amssymb}
+\usepackage{makecell}
+\usepackage{multirow}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, shapes.geometric, calc}
+
+% --- Meta ---
+\title[Down Round as Emergent Strategy]{Down Round as Emergent Strategy:\\Multi-Agent RL Evidence from VC Auctions}
+\author{Xinglin Lai\\[0.2em]
+  \small Department of Finance, Lingnan University\\
+  \small \texttt{xinglinlai@ln.hk} \quad \texttt{xinglinzephyrlai@gmail.com}}
+\institute{Course: Artificial Intelligence for Business Research}
+\date{May 2026}
+
+\begin{document}
+
+% ============================================================
+% TITLE SLIDE
+% ============================================================
+\begin{frame}
+  \titlepage
+\end{frame}
+
+% ============================================================
+% OUTLINE
+% ============================================================
+\begin{frame}{Outline}
+  \tableofcontents[hideallsubsections]
+\end{frame}
+
+% ============================================================
+\section{Background \& Motivation}
+% ============================================================
+
+\begin{frame}{What Is a Down Round?}
+  \begin{block}{Definition}
+    A \emph{down round} occurs when a company raises capital at a post-money valuation \textbf{lower} than its previous round.
+  \end{block}
+
+  \vspace{0.3cm}
+  \begin{itemize}
+    \item Among 49,996 rounds in our dataset, down rounds constitute \textbf{49.35\%} of consecutive funding sequences
+    \item Nearly a coin flip --- yet the \emph{why} remains poorly understood
+    \item Five distinct mechanisms have been proposed: statistical effects, intertemporal arbitrage, information cascades, market structure, behavioral biases
+  \end{itemize}
+
+  \vspace{0.3cm}
+  \begin{center}
+    \textbf{Core Question:} Are down rounds purely statistical noise,\\
+    or do rational agents \emph{strategically} devalue?
+  \end{center}
+\end{frame}
+
+\begin{frame}{Why Traditional Methods Fall Short}
+  \begin{columns}[T]
+    \column{0.32\textwidth}
+    \begin{block}{Data Sparsity}
+      Only $\sim$1\% of Crunchbase rounds contain valuation data
+    \end{block}
+
+    \column{0.32\textwidth}
+    \begin{block}{Identification}
+      Separating statistical, strategic, and behavioral contributions requires counterfactuals unavailable in observational data
+    \end{block}
+
+    \column{0.32\textwidth}
+    \begin{block}{Conflicting Theories}
+      Different mechanisms predict similar outcomes --- causal attribution is impossible
+    \end{block}
+  \end{columns}
+\end{frame}
+
+% ============================================================
+\section{Our Approach}
+% ============================================================
+
+\begin{frame}{Computational Randomized Controlled Trial}
+  \begin{itemize}
+    \item Construct a multi-agent RL environment mirroring VC auction economics
+    \item Train agents to learn \emph{optimal} bidding strategies
+    \item Observe what behaviors \textbf{emerge} spontaneously
+  \end{itemize}
+
+  \vspace{0.4cm}
+  \begin{block}{Analogy with LLMs}
+    If down rounds are optimal, they should \emph{emerge} during training --- analogous to how chain-of-thought reasoning and in-context learning emerge in large language models \citep{brown2020, wei2022}.
+  \end{block}
+
+  \vspace{0.4cm}
+  \begin{center}
+    \fbox{\parbox{0.85\textwidth}{\centering
+      \textbf{RL+LLM+Data Framework}\\
+      Phase A: RL Emergence (this work)\\
+      Phase B: DPO-trained LLM Interpreters (planned)
+    }}
+  \end{center}
+\end{frame}
+
+% ============================================================
+\section{Environment Design}
+% ============================================================
+
+\begin{frame}{Auction Environment}
+  \begin{block}{Two-Period Vickrey (Second-Price) Auction}
+    \begin{itemize}
+      \item \textbf{Bidders:} $N=3$ (matching typical VC round investor count)
+      \item \textbf{Valuation:} $V \sim \text{LogNormal}(\text{median}=100,\;\sigma_{\log}=1.19)$, calibrated from data
+      \item \textbf{Inter-round shift:} $V_1 = V \cdot e^{\mathcal{N}(0,\,1.0)}$ --- realistic volatility
+      \item \textbf{Private signals:} $\theta_i \sim \mathcal{N}(V_t,\;\sigma^2)$, with $\sigma/V \approx 20\%$
+      \item \textbf{Ownership:} Winner acquires $\alpha = 0.17$ (data median)
+    \end{itemize}
+  \end{block}
+
+  \vspace{0.3cm}
+  \textbf{Key innovation:} Stochastic valuation + inter-round shift produce a random baseline DR rate of $\sim$48\%, matching empirical 49.35\%.
+\end{frame}
+
+\begin{frame}{MAPPO CTDE Architecture}
+  \begin{columns}[T]
+    \column{0.48\textwidth}
+    \begin{block}{Decentralized Actor}
+      \begin{itemize}
+        \item 6-dim private observation: $[\theta_i,\;t,\;P_0,\;w_i^{prev},\;\mu_{belief},\;\sigma_{belief}]$
+        \item MLP: $6 \to 64 \to 64 \to 1$
+        \item Gaussian policy: $b_i \sim \mathcal{N}(\mu(\theta_i),\;\sigma^2)$
+      \end{itemize}
+    \end{block}
+
+    \column{0.48\textwidth}
+    \begin{block}{Centralized Critic}
+      \begin{itemize}
+        \item 9-dim global state: all signals + ownership
+        \item MLP: $9 \to 128 \to 128 \to 64 \to 1$
+        \item Observes \emph{everything} during training
+      \end{itemize}
+    \end{block}
+  \end{columns}
+
+  \vspace{0.3cm}
+  \begin{block}{Why CTDE?}
+    Models real-world information asymmetry: each VC sees only their private signal, yet training leverages global market information.
+  \end{block}
+\end{frame}
+
+\begin{frame}{Reward Function \& Belief Update}
+  \textbf{Rewards incorporate ownership dilution and cross-round optionality:}
+  \begin{align*}
+    R_0^{winner} &= \alpha \cdot V - P_0 + \gamma \cdot (1-\alpha) \cdot \alpha \cdot V \cdot \frac{0.5}{N} \\[0.3em]
+    R_1^{winner} &= \alpha' \cdot V_1 - P_1, \quad \alpha' = (1 - o_{total}) \cdot \alpha
+  \end{align*}
+
+  \vspace{0.3cm}
+  \textbf{Bayesian belief update after Round 0:}
+  \begin{equation*}
+    \mu_{post} = \frac{\mu_{prior}/\sigma_{prior}^2 + P_0/\sigma_{obs}^2}{1/\sigma_{prior}^2 + 1/\sigma_{obs}^2}
+  \end{equation*}
+  Agents treat the observed price as a noisy signal about opponent types.
+\end{frame}
+
+% ============================================================
+\section{Results}
+% ============================================================
+
+\begin{frame}{Calibration: Random Baseline vs.~Empirical Data}
+  \begin{table}
+    \centering
+    \caption{Stochastic $V$ ($\sigma_{\log}=1.19$) + v\_shift ($\sigma_{\text{shift}}=1.0$) produces a baseline closely matching data.}
+    \begin{tabular}{lcc}
+      \toprule
+      \textbf{Statistic} & \textbf{Data} & \textbf{Random Baseline} \\
+      \midrule
+      DR rate (consecutive) & 49.35\% & 48\% \\
+      DR magnitude (mean)   & -62.24\% & close match \\
+      DR magnitude (median) & -68.11\% & close match \\
+      Ownership median      & 0.17     & 0.17 \\
+      \bottomrule
+    \end{tabular}
+  \end{table}
+
+  \vspace{0.3cm}
+  Untrained agents bidding proportionally to signals already approximate the empirical distribution --- \emph{without any strategic learning}.
+\end{frame}
+
+\begin{frame}{Result 1: Strategic Emergence of Down Rounds}
+  After 10,000 episodes of MAPPO training:
+
+  \begin{table}
+    \centering
+    \caption{DR rate rises from 49\% to 82\% --- a 33\% strategic component.}
+    \begin{tabular}{lccc}
+      \toprule
+      \textbf{Statistic} & \textbf{Random} & \textbf{RL-Trained} & \textbf{Strategic} \\
+      & \textbf{Baseline} & & \textbf{Component} \\
+      \midrule
+      DR rate & 49\% & \textbf{82\%} & \textcolor{red}{+33\%} \\
+      DR mag.\ (mean) & -40\% & \textbf{-29\%} & milder \\
+      DR mag.\ (median) & -38\% & \textbf{-24\%} & milder \\
+      \bottomrule
+    \end{tabular}
+  \end{table}
+
+  \vspace{0.3cm}
+  \begin{block}{Interpretation}
+    Down rounds arise as \emph{rational optimal strategies} when agents learn to exploit inter-round value shifts and ownership dynamics.
+  \end{block}
+\end{frame}
+
+\begin{frame}{Result 2: Equilibrium Policy Functions}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.92\textwidth]{../figures/fig1_equilibrium_policy.png}
+    \caption{Left: Round 0 bid vs.\ private signal (all agents above benchmark). Right: Round 1 bid vs.\ Round 0 price (all strategies fall below $P_0$ --- down round region dominates).}
+  \end{figure}
+
+  \vspace{-0.2cm}
+  \begin{itemize}
+    \item \textbf{Round 0:} Competitive pressure $\to$ bid above stake-value benchmark
+    \item \textbf{Round 1:} Systematic devaluation $\to$ equilibrium outcome is a down round
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Result 3: Down Round Emergence Heatmap}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.82\textwidth]{../figures/fig2_emergence_heatmap.png}
+    \caption{DR rate as function of $\sigma/V$ and $P_0$ deviation. Blue star = data-calibrated point.}
+  \end{figure}
+
+  \vspace{-0.2cm}
+  \begin{itemize}
+    \item At calibrated noise ($\sigma/V=20\%$), DR rate = \textbf{76.5\%}
+    \item \textbf{Phase transition:} high noise $\to$ systematic DRs across all price deviations
+    \item Low noise $\to$ DR rates vary with prior-price deviation
+  \end{itemize}
+\end{frame}
+
+% ============================================================
+\section{The Magnitude Paradox}
+% ============================================================
+
+\begin{frame}{The Down Round Magnitude Paradox}
+  \begin{columns}[T]
+    \column{0.48\textwidth}
+    \begin{block}{RL-Trained Agents}
+      \begin{itemize}
+        \item DR rate: 82\%
+        \item DR magnitude (mean): \textbf{-29\%}
+        \item DR magnitude (median): \textbf{-24\%}
+      \end{itemize}
+    \end{block}
+
+    \column{0.48\textwidth}
+    \begin{block}{Real Market Data}
+      \begin{itemize}
+        \item DR rate: 49.35\%
+        \item DR magnitude (mean): \textbf{-62\%}
+        \item DR magnitude (median): \textbf{-68\%}
+      \end{itemize}
+    \end{block}
+  \end{columns}
+
+  \vspace{0.3cm}
+  \begin{block}{The Paradox}
+    RL agents produce frequent but \emph{mild} DRs; real data shows \emph{severe} DRs.\\
+    Strategic rationality alone cannot explain the full severity.
+  \end{block}
+\end{frame}
+
+\begin{frame}{Decomposing Down Rounds}
+  \begin{equation*}
+    \text{DR}_{\text{observed}} = \underbrace{\text{DR}_{\text{statistical}}}_{\approx\,49\%}
+    + \underbrace{\text{DR}_{\text{strategic}}}_{\approx\,33\%}
+    + \underbrace{\text{DR}_{\text{behavioral}}}_{\text{magnitude amplifier}}
+  \end{equation*}
+
+  \vspace{0.3cm}
+  \begin{block}{Behavioral Bias Candidates}
+    \begin{itemize}
+      \item \textbf{Loss aversion} \citep{kahneman1979}: overly conservative bidding after prior losses
+      \item \textbf{Anchoring}: over-reliance on $P_0$ as reference point
+      \item \textbf{Winner's curse} \citep{thaler1988}: fear of overbidding drives defensive underbidding
+    \end{itemize}
+  \end{block}
+
+  \vspace{0.2cm}
+  Behavioral biases likely amplify DR severity \emph{beyond} rational equilibrium levels --- this motivates Phase B.
+\end{frame}
+
+% ============================================================
+\section{Phase B: LLM Post-Training}
+% ============================================================
+
+\begin{frame}{Phase B: DPO-Trained LLM Interpreters}
+  Use DPO \citep{rafailov2023} to train LLMs as ``decision interpreters'':
+
+  \begin{enumerate}
+    \item \textbf{Tokenization:} Convert RL states (signal, price, beliefs) into natural language
+    \item \textbf{Reasoning chains:} LLM generates ``why'' explanations for each bid
+    \item \textbf{Preference pairs:} Rational reasoning (chosen) vs.\ biased reasoning (rejected)
+    \item \textbf{DPO training:} $\mathcal{L}_{\text{DPO}} = -\log \sigma\!\left(\beta \cdot (\log \pi_{\text{rat}} - \log \pi_{\text{bias}})\right)$
+  \end{enumerate}
+
+  \vspace{0.3cm}
+  \begin{block}{Four Bias Types to Quantify}
+    Anchoring $\;\mid\;$ Loss Aversion ($\lambda=2.5$) $\;\mid\;$ Overconfidence $\;\mid\;$ Herding
+  \end{block}
+
+  \vspace{0.2cm}
+  Already generated 1000+ DPO preference samples ($\sim$500KB dataset).
+\end{frame}
+
+% ============================================================
+\section{Discussion \& Conclusion}
+% ============================================================
+
+\begin{frame}{Contributions}
+  \begin{block}{Methodological}
+    Computational RCT via RL agents identifies causal mechanisms that observational data cannot separate.
+  \end{block}
+
+  \begin{block}{Empirical}
+    Quantification of strategic (+33\%) vs.\ statistical (49\%) vs.\ behavioral (magnitude amplification) down round components.
+  \end{block}
+
+  \begin{block}{Conceptual}
+    Bridges RL emergence with LLM post-training interpretability for agentic AI in business research.
+  \end{block}
+\end{frame}
+
+\begin{frame}{Policy Implications}
+  \begin{itemize}
+    \item If down rounds are partially \emph{rational equilibrium} outcomes, interventions should target \textbf{structural causes}
+      \begin{itemize}
+        \item Improve information disclosure to reduce signal noise
+        \item NOT regulatory restrictions on down rounds themselves
+      \end{itemize}
+    \item The strategic component (33\%) suggests some DRs are \emph{efficient} market outcomes
+    \item The behavioral component identifies where investor education or decision-support tools could \emph{reduce unnecessary severity}
+    \item Strategic devaluation may be a \textbf{feature} of rational optimization, not a bug requiring intervention
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Open Problems \& Future Work}
+  \begin{enumerate}
+    \item \textbf{Magnitude paradox resolution:} Behavioral bias modeling (Phase B) or alternative reward structures
+    \item \textbf{Multi-round generalization:} Extend from 2 rounds to realistic 3--7 round sequences
+    \item \textbf{LLM-RL alignment:} Can DPO-trained LLMs accurately predict RL actions ($>80\%$ accuracy)?
+    \item \textbf{Endogeneity:} Real-world valuation shifts may be driven by prior-round pricing dynamics (currently exogenous)
+  \end{enumerate}
+
+  \vspace{0.3cm}
+  \begin{center}
+    \fbox{\parbox{0.85\textwidth}{\centering
+      \textbf{Future work:} Phase B implementation, multi-round extensions,\\
+      validation on additional VC datasets
+    }}
+  \end{center}
+\end{frame}
+
+\begin{frame}{Conclusion}
+  \begin{itemize}
+    \item Down rounds \emph{emerge} as rational optimal strategies in data-calibrated multi-agent RL environments ($N=3$ bidders)
+    \item Strategic component adds \textbf{33\%} to the 49\% statistical baseline $\to$ 82\% DR rate
+    \item Magnitude paradox: RL agents produce mild DRs (-29\%) vs.\ real data (-62\%) $\to$ behavioral biases amplify severity
+    \item RL+LLM+Data framework bridges emergence with interpretability for agentic AI in business research
+  \end{itemize}
+
+  \vspace{0.5cm}
+  \begin{center}
+    \Large Thank you!
+  \end{center}
+\end{frame}
+
+\end{document}
