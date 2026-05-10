@@ -12,6 +12,7 @@ import yaml
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
+from scipy.ndimage import gaussian_filter
 from pathlib import Path
 
 from src.environment.vc_auction_env import MultiBidderVCAuctionEnv
@@ -42,7 +43,7 @@ plt.rcParams['figure.dpi'] = 150
 def plot_equilibrium_policy_function(agents, env,
                                      save_path='figures/fig1_equilibrium_policy.png'):
     """Figure 1: Equilibrium policy functions for N bidders."""
-    fig = plt.figure(figsize=(14, 5))
+    fig = plt.figure(figsize=(14, 5), constrained_layout=True)
     gs = GridSpec(1, 2, figure=fig, wspace=0.3)
 
     colors = ['#1f77b4', '#ff7f0e', '#2ca02c']
@@ -97,7 +98,6 @@ def plot_equilibrium_policy_function(agents, env,
     fig.suptitle(f'Figure 1: Equilibrium Policy Functions (N={N_BIDDERS} Bidders, Data-Calibrated)',
                 fontsize=16, fontweight='bold', y=1.02)
 
-    plt.tight_layout()
     Path(save_path).parent.mkdir(exist_ok=True, parents=True)
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     print(f"Figure 1 saved: {save_path}")
@@ -106,7 +106,7 @@ def plot_equilibrium_policy_function(agents, env,
 
 def plot_down_round_emergence_heatmap(save_path='figures/fig2_emergence_heatmap.png'):
     """Figure 2: DR emergence heatmap (V3, data-calibrated)."""
-    fig, ax = plt.subplots(figsize=(10, 8))
+    fig, ax = plt.subplots(figsize=(11, 5.5))
 
     p0_deviations = np.linspace(-0.3, 0.3, 50)
     noise_levels = np.linspace(0.05, 0.50, 50)
@@ -149,10 +149,17 @@ def plot_down_round_emergence_heatmap(save_path='figures/fig2_emergence_heatmap.
         if (i + 1) % 10 == 0:
             print(f"  Progress: {(i+1)/len(noise_levels)*100:.0f}%")
 
+    # Smooth heatmap to reduce Monte Carlo noise artifacts
+    down_round_rates = gaussian_filter(down_round_rates, sigma=1.0)
+
+    # Set color scale to actual data range for better contrast
+    vmin_val = max(0.0, np.percentile(down_round_rates, 5))
+    vmax_val = min(1.0, np.percentile(down_round_rates, 95))
+
     im = ax.imshow(down_round_rates, aspect='auto', origin='lower',
                    extent=[p0_deviations[0]*100, p0_deviations[-1]*100,
                           noise_levels[0]*100, noise_levels[-1]*100],
-                   cmap='RdYlGn_r', vmin=0, vmax=1, interpolation='bicubic')
+                   cmap='RdYlGn_r', vmin=vmin_val, vmax=vmax_val, interpolation='nearest')
 
     contours = ax.contour(p0_deviations*100, noise_levels*100, down_round_rates,
                           levels=[0.3, 0.5, 0.7], colors='black', linewidths=1.5, alpha=0.6)
@@ -177,7 +184,6 @@ def plot_down_round_emergence_heatmap(save_path='figures/fig2_emergence_heatmap.
     ax.legend(loc='upper right', fontsize=10)
     ax.grid(True, alpha=0.3, linestyle='--')
 
-    plt.tight_layout()
     Path(save_path).parent.mkdir(exist_ok=True, parents=True)
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     print(f"Figure 2 saved: {save_path}")
